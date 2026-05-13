@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Modal, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { API_BASE } from '../services/lotteryApi';
+import { API_BASE, formatVietlottKyRowDateVi } from '../services/lotteryApi';
 
 type KyItem = { kyso: string; date?: string; drawDay?: string };
 type Props = { product: string; value: string; onChange: (kyso: string) => void; accentColor?: string };
@@ -170,7 +170,7 @@ export default function KySoPicker({ product, value, onChange, accentColor = '#2
                     </Text>
                     {item.date || item.drawDay ? (
                       <Text style={{ marginTop: 2, fontSize: 12, color: '#8E8E93' }}>
-                        {[item.date, item.drawDay].filter(Boolean).join(' • ')}
+                        {[item.date ? formatVietlottKyRowDateVi(item.date) : null, item.drawDay].filter(Boolean).join(' • ')}
                       </Text>
                     ) : null}
                   </View>

@@ -3,7 +3,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Animated, Image, Modal, PanResponder, Pressable, ScrollView, Text, TextInput, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Haptics from 'expo-haptics';
-import { API_BASE } from '../src/services/lotteryApi';
+import { API_BASE, formatVietlottKyRowDateVi } from '../src/services/lotteryApi';
 
 export type ProductKey = 'keno' | 'mega' | 'power' | 'max3d' | 'max3dpro' | 'lotto535';
 export type KenoTab = 'so' | 'text';
@@ -295,12 +295,16 @@ export function KySoPicker({ product, value, onChange, accentColor = '#2D7FF9' }
       const now = new Date();
       const dayNames = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
       const tmp: { kyso: string; date: string; drawDay: string }[] = [];
+      const padKy = (n: number) => String(n).padStart(product === 'keno' ? 7 : 5, '0');
       for (let i = 0; i < (product === 'keno' ? 200 : 90); i++) {
         const d = new Date(now);
         d.setDate(now.getDate() - i);
+        const dd = String(d.getDate()).padStart(2, '0');
+        const mm = String(d.getMonth() + 1).padStart(2, '0');
+        const yyyy = d.getFullYear();
         tmp.push({
-          kyso: String(currentKy - i).padStart(5, '0'),
-          date: d.toLocaleDateString('vi-VN'),
+          kyso: padKy(currentKy - i),
+          date: `${dd}/${mm}/${yyyy}`,
           drawDay: dayNames[d.getDay()],
         });
       }
@@ -324,7 +328,7 @@ export function KySoPicker({ product, value, onChange, accentColor = '#2D7FF9' }
           <Text style={{ color: '#303233' }}>{value ? `Kỳ #${value}` : 'Mới nhất'}</Text>
           {!value && latestKy ? (
             <Text style={{ marginTop: 1, color: '#8A8F98', fontSize: 11 }}>
-              Kỳ #{latestKy.kyso} · {latestKy.date}
+              Kỳ #{latestKy.kyso} · {formatVietlottKyRowDateVi(latestKy.date)}
             </Text>
           ) : null}
         </View>
@@ -365,7 +369,9 @@ export function KySoPicker({ product, value, onChange, accentColor = '#2D7FF9' }
                   <Text style={{ color: value === it.kyso ? accentColor : '#303233', fontWeight: value === it.kyso ? '700' : '500' }}>
                     Kỳ #{it.kyso}
                   </Text>
-                  <Text style={{ color: '#8A8F98', fontSize: 12, marginTop: 2 }}>{it.date} · {it.drawDay}</Text>
+                  <Text style={{ color: '#8A8F98', fontSize: 12, marginTop: 2 }}>
+                    {formatVietlottKyRowDateVi(it.date)} · {it.drawDay}
+                  </Text>
                 </TouchableOpacity>
               ))}
             </ScrollView>
@@ -661,7 +667,9 @@ export function ResultCard({ product, channel, result, checkResult, myNumbers, m
   return (
     <View style={{ marginTop: 12, backgroundColor: '#fff', borderRadius: 12, borderWidth: 1, borderColor: '#E8EAF0', padding: 12 }}>
       <Text style={{ fontWeight: '800', color: '#303233' }}>Kết quả</Text>
-      <Text style={{ color: '#8A8F98', fontSize: 12, marginTop: 2 }}>Kỳ: {result?.kySo || '—'} · Ngày: {result?.drawDate || '—'}</Text>
+      <Text style={{ color: '#8A8F98', fontSize: 12, marginTop: 2 }}>
+        Kỳ: {result?.kySo || '—'} · Ngày: {result?.drawDate ? formatVietlottKyRowDateVi(String(result.drawDate)) : '—'}
+      </Text>
       <View
         style={{
           marginTop: 10,
@@ -1233,7 +1241,8 @@ export function SavedList({ channel, refreshKey }: { channel: 'vietlott' | 'xskt
               const nums = Array.isArray(it.numbers) ? it.numbers.map((n: number) => String(n).padStart(2, '0')).join(' ') : (it.ticketNumber || '');
               const drawIdText = it.drawId ? `Kỳ #${String(it.drawId).replace(/^#*/, '')}` : '';
               const sub = drawIdText || (it.frequency === 'every' ? 'Theo kỳ' : 'Một lần');
-              const drawText = it.drawDate || dateKey;
+              const rawDraw = it.drawDate || dateKey;
+              const drawText = isXskt ? rawDraw : formatVietlottKyRowDateVi(String(rawDraw || ''));
               return (
                 <SwipeDeleteRow key={`${dateKey}-${idx}`} onDelete={() => { void removeItem(it); }}>
                   <View style={{ borderRadius: 14, overflow: 'hidden', backgroundColor: '#fff' }}>

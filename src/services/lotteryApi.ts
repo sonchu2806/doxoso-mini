@@ -1,5 +1,16 @@
 export const API_BASE = 'https://web-production-d8605.up.railway.app';
 
+/** Hiển thị ngày quay thống nhất dd/mm/yyyy (từ ISO yyyy-mm-dd hoặc chuỗi dd/mm/yyyy). */
+export function formatVietlottKyRowDateVi(raw: string): string {
+  const t = String(raw || '').trim();
+  if (!t || t === '—') return t || '—';
+  const iso = t.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (iso) return `${iso[3]}/${iso[2]}/${iso[1]}`;
+  const slash = t.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (slash) return `${slash[1].padStart(2, '0')}/${slash[2].padStart(2, '0')}/${slash[3]}`;
+  return t;
+}
+
 export async function fetchVietlottResult(product: string, kyso?: string) {
   const url = kyso
     ? `${API_BASE}/vietlott/${product}?kyso=${kyso}`
