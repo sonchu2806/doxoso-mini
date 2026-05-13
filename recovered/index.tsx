@@ -675,9 +675,7 @@ export function ResultCard({ product, channel, result, checkResult, myNumbers, m
           {checkResult?.prize ? 'Trúng' : 'Không trúng'}
         </Text>
         {checkResult?.prize ? (
-          <Text style={{ marginTop: 2, fontSize: 12, color: '#7B818D' }}>
-            Giải: {checkResult.prize}
-          </Text>
+          <Text style={{ marginTop: 2, fontSize: 12, color: '#7B818D' }}>{checkResult.prize}</Text>
         ) : null}
       </View>
 
@@ -1253,7 +1251,7 @@ export function SavedList({ channel, refreshKey }: { channel: 'vietlott' | 'xskt
                         </Text>
                         {isWin ? (
                           <Text style={{ color: '#1E9E57', fontSize: 12, fontWeight: '700', marginTop: 2 }}>
-                            🎉 Trúng giải: {it.prize}
+                            🎉 {it.prize}
                           </Text>
                         ) : null}
                       </View>
