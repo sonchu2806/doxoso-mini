@@ -30,6 +30,7 @@ import {
   fetchXSKTResult,
   getRecentDrawDates,
   haptics,
+  xsktExpectedTicketDigitCount,
 } from './recovered';
 
 const TAB_ICON_XSKT = require('./assets/tab-xskt.png');
@@ -284,8 +285,12 @@ export default function App() {
       msg = 'Vui lòng nhập số đặc biệt cho Lotto 5/35!';
     } else if (channel === 'xskt') {
       const xsktDigits = (xsktNum || '').replace(/\D/g, '');
-      valid = xsktDigits.length === 6;
-      msg = xsktDigits.length === 0 ? 'Vui lòng nhập số vé!' : 'Vui lòng nhập đủ 6 số vé!';
+      const need = xsktExpectedTicketDigitCount(xsktDai);
+      valid = xsktDigits.length === need;
+      msg =
+        xsktDigits.length === 0
+          ? 'Vui lòng nhập số vé!'
+          : `Vui lòng nhập đủ ${need} số vé (${need === 5 ? 'miền Bắc' : 'miền Nam / Trung'})!`;
     } else if (product === 'keno') {
       if (kenoTab === 'text') {
         valid = kenoTextValue !== null;
@@ -318,7 +323,7 @@ export default function App() {
       if (channel === 'xskt') {
         const result = await fetchXSKTResult(xsktDai, xsktDate);
         if (!result) throw new Error('No result');
-        const check = checkXSKTTicket(xsktNum, result);
+        const check = checkXSKTTicket(xsktNum, result, xsktDai);
         setApiResult(result);
         setCheckResult(check);
         await handleSave(false, check);

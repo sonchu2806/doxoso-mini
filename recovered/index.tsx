@@ -3,7 +3,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Animated, Image, Modal, PanResponder, Pressable, ScrollView, Text, TextInput, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Haptics from 'expo-haptics';
-import { API_BASE, formatVietlottKyRowDateVi } from '../src/services/lotteryApi';
+import { API_BASE, formatVietlottKyRowDateVi, checkXSKTTicket, xsktExpectedTicketDigitCount } from '../src/services/lotteryApi';
 
 export type ProductKey = 'keno' | 'mega' | 'power' | 'max3d' | 'max3dpro' | 'lotto535';
 export type KenoTab = 'so' | 'text';
@@ -58,7 +58,7 @@ export const haptics = {
   error: () => Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {}),
 };
 
-export { API_BASE };
+export { API_BASE, checkXSKTTicket, xsktExpectedTicketDigitCount };
 
 export async function fetchVietlottResult(product: string, kyso?: string) {
   const url = kyso
@@ -135,50 +135,6 @@ export function checkVietlottTicket(myNumbers: number[], result: { numbers: numb
   }
   return { matched, prize, amount: 0 };
 }
-export function checkXSKTTicket(ticketNumber: string, result: { prizes: { label: string; numbers: string[] }[] }) {
-  const ticket = String(ticketNumber || '').replace(/\D/g, '');
-  if (!ticket) return { matched: false, prize: '', amount: 0 };
-
-  const normalize = (s: string) =>
-    String(s || '')
-      .toLowerCase()
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '');
-
-  const getPrizeMeta = (label: string) => {
-    const l = normalize(label);
-    if (l.includes('dac biet')) return { digits: 6, rank: 0 };
-    if (l.includes('nhat') || l.includes('giai 1')) return { digits: 5, rank: 1 };
-    if (l.includes('nhi') || l.includes('giai 2')) return { digits: 5, rank: 2 };
-    if (l.includes('ba') || l.includes('giai 3')) return { digits: 5, rank: 3 };
-    if (l.includes('tu') || l.includes('giai 4')) return { digits: 5, rank: 4 };
-    if (l.includes('nam') || l.includes('giai 5')) return { digits: 4, rank: 5 };
-    if (l.includes('sau') || l.includes('giai 6')) return { digits: 4, rank: 6 };
-    if (l.includes('bay') || l.includes('giai 7')) return { digits: 3, rank: 7 };
-    if (l.includes('tam') || l.includes('giai 8')) return { digits: 2, rank: 8 };
-    return { digits: 6, rank: 99 };
-  };
-
-  let best: { prize: string; rank: number } | null = null;
-  for (const p of result?.prizes || []) {
-    const { digits, rank } = getPrizeMeta(p?.label || '');
-    for (const num of p?.numbers || []) {
-      const win = String(num || '').replace(/\D/g, '');
-      if (!win) continue;
-      const tailLen = Math.min(digits, ticket.length, win.length);
-      if (tailLen <= 0) continue;
-      if (ticket.slice(-tailLen) === win.slice(-tailLen)) {
-        if (!best || rank < best.rank) {
-          best = { prize: p.label, rank };
-        }
-      }
-    }
-  }
-
-  if (best) return { matched: true, prize: best.prize, amount: 0 };
-  return { matched: false, prize: '', amount: 0 };
-}
-
 const KEY = 'doxoso_saved_tickets';
 export async function saveTicket(ticket: any) {
   const raw = await AsyncStorage.getItem(KEY);
@@ -901,7 +857,8 @@ export function XSKTInput({ onValueChange }: { onCheck: any; onValueChange: any;
   const [isTicketFocused, setIsTicketFocused] = useState(false);
   const [blinkOn, setBlinkOn] = useState(true);
   const ticketDigits = (ticket || '').replace(/\D/g, '');
-  const isTicketReady = ticketDigits.length === 6;
+  const ticketLen = region === 'mb' ? 5 : 6;
+  const isTicketReady = ticketDigits.length === ticketLen;
 
   const emit = (nextTicket: string, nextDai: string, nextDate: string) => {
     onValueChange(nextTicket, nextDai, nextDate);
@@ -944,8 +901,8 @@ export function XSKTInput({ onValueChange }: { onCheck: any; onValueChange: any;
     return () => clearInterval(timer);
   }, [isTicketFocused]);
 
-  const displayChars = Array.from({ length: 6 }, (_, i) => ticket[i] || '—');
-  const caretSlot = Math.min(ticket.length, 5);
+  const displayChars = Array.from({ length: ticketLen }, (_, i) => ticket[i] || '—');
+  const caretSlot = Math.min(ticket.length, ticketLen > 0 ? ticketLen - 1 : 0);
 
   return (
     <View style={{ gap: 10 }}>
@@ -957,9 +914,12 @@ export function XSKTInput({ onValueChange }: { onCheck: any; onValueChange: any;
               key={r}
               onPress={() => {
                 setRegion(r);
+                const d = ticket.replace(/\D/g, '');
+                const nextT = r === 'mb' ? d.slice(0, 5) : d.slice(0, 6);
+                setTicket(nextT);
                 const nextDai = (XSKT_SCHEDULE[r]?.[weekday] || [])[0] || dai;
                 setDai(nextDai);
-                emit(ticket, nextDai, date);
+                emit(nextT, nextDai, date);
               }}
               style={{
                 flex: 1,
@@ -1137,17 +1097,21 @@ export function XSKTInput({ onValueChange }: { onCheck: any; onValueChange: any;
           }}
           onBlur={() => setIsTicketFocused(false)}
           onChangeText={(t) => {
-            const next = t.replace(/\D/g, '').slice(0, 6);
+            const next = t.replace(/\D/g, '').slice(0, ticketLen);
             setTicket(next);
             emit(next, dai, date);
           }}
           keyboardType="number-pad"
-          maxLength={6}
+          maxLength={ticketLen}
           style={{ position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, opacity: 0 }}
         />
       </TouchableOpacity>
       <Text style={{ marginTop: 2, color: isTicketReady ? '#24A972' : '#A16B00', fontSize: 12, fontWeight: '600' }}>
-        {isTicketReady ? 'Đã nhập đủ 6 số, bạn có thể Dò kết quả.' : ticketDigits.length === 0 ? 'Vui lòng nhập số vé để dò kết quả.' : 'Vui lòng nhập đủ 6 số vé để dò kết quả.'}
+        {isTicketReady
+          ? `Đã nhập đủ ${ticketLen} số, bạn có thể Dò kết quả.`
+          : ticketDigits.length === 0
+            ? 'Vui lòng nhập số vé để dò kết quả.'
+            : `Vui lòng nhập đủ ${ticketLen} số vé để dò kết quả.`}
       </Text>
     </View>
   );

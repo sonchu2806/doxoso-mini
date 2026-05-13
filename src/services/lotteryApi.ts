@@ -1,5 +1,24 @@
 export const API_BASE = 'https://web-production-d8605.up.railway.app';
 
+/** Đài XSKT miền Bắc: số vé 5 chữ số; miền Nam / Trung: 6 chữ số. */
+export const XSKT_MIEN_BAC_DAIS = [
+  'Hà Nội',
+  'Hải Phòng',
+  'Quảng Ninh',
+  'Bắc Ninh',
+  'Nam Định',
+  'Thái Bình',
+] as const;
+
+export function isXsktMienBacDai(dai: string): boolean {
+  const d = (dai || '').trim();
+  return (XSKT_MIEN_BAC_DAIS as readonly string[]).includes(d);
+}
+
+export function xsktExpectedTicketDigitCount(dai: string): 5 | 6 {
+  return isXsktMienBacDai(dai) ? 5 : 6;
+}
+
 /** Hiển thị ngày quay thống nhất dd/mm/yyyy (từ ISO yyyy-mm-dd hoặc chuỗi dd/mm/yyyy). */
 export function formatVietlottKyRowDateVi(raw: string): string {
   const t = String(raw || '').trim();
@@ -95,13 +114,51 @@ export function checkVietlottTicket(myNumbers: number[], result: { numbers: numb
   return { matched, prize, amount };
 }
 
-export function checkXSKTTicket(ticketNumber: string, result: { specialPrize: string; prizes: { label: string; numbers: string[] }[] }) {
+export function checkXSKTTicket(
+  ticketNumber: string,
+  result: { specialPrize?: string; prizes: { label: string; numbers: string[] }[] },
+  dai?: string
+) {
+  const ticket = String(ticketNumber || '').replace(/\D/g, '');
+  if (!ticket) return { matched: false, prize: '', amount: 0 };
+  const mb = isXsktMienBacDai(dai || '');
+
+  const normalize = (s: string) =>
+    String(s || '')
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '');
+
+  const getPrizeMeta = (label: string) => {
+    const l = normalize(label);
+    if (l.includes('dac biet')) return { digits: mb ? 5 : 6, rank: 0 };
+    if (l.includes('nhat') || l.includes('giai 1')) return { digits: 5, rank: 1 };
+    if (l.includes('nhi') || l.includes('giai 2')) return { digits: 5, rank: 2 };
+    if (l.includes('ba') || l.includes('giai 3')) return { digits: 5, rank: 3 };
+    if (l.includes('tu') || l.includes('giai 4')) return { digits: 5, rank: 4 };
+    if (l.includes('nam') || l.includes('giai 5')) return { digits: 4, rank: 5 };
+    if (l.includes('sau') || l.includes('giai 6')) return { digits: 4, rank: 6 };
+    if (l.includes('bay') || l.includes('giai 7')) return { digits: 3, rank: 7 };
+    if (l.includes('tam') || l.includes('giai 8')) return { digits: 2, rank: 8 };
+    return { digits: 6, rank: 99 };
+  };
+
+  let best: { prize: string; rank: number } | null = null;
   for (const p of result?.prizes || []) {
-    for (const num of p.numbers || []) {
-      if (num === ticketNumber) return { matched: true, prize: p.label, amount: 0 };
-      if (ticketNumber.length >= 4 && num.endsWith(ticketNumber.slice(-4))) return { matched: true, prize: `${p.label} (4 số đuôi)`, amount: 0 };
-      if (ticketNumber.length >= 2 && num.endsWith(ticketNumber.slice(-2))) return { matched: true, prize: 'Giải tám (2 số đuôi)', amount: 100000 };
+    const { digits, rank } = getPrizeMeta(p?.label || '');
+    for (const num of p?.numbers || []) {
+      const win = String(num || '').replace(/\D/g, '');
+      if (!win) continue;
+      const tailLen = Math.min(digits, ticket.length, win.length);
+      if (tailLen <= 0) continue;
+      if (ticket.slice(-tailLen) === win.slice(-tailLen)) {
+        if (!best || rank < best.rank) {
+          best = { prize: p.label, rank };
+        }
+      }
     }
   }
+
+  if (best) return { matched: true, prize: best.prize, amount: 0 };
   return { matched: false, prize: '', amount: 0 };
 }

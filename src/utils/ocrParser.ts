@@ -1,3 +1,5 @@
+import { isXsktMienBacDai } from '../services/lotteryApi';
+
 export type ParsedTicket =
   | { type: 'xskt'; ticketNumber: string; dai?: string }
   | { type: 'vietlott_qr'; product: string; numbers?: number[] }
@@ -105,7 +107,28 @@ const DAI_LIST = [
 
 export function parseXSKTOCR(text: string): ParsedTicket {
   const compactDigits = text.replace(/\D/g, '');
+  const normalizedText = text.toLowerCase();
+  const foundDai = DAI_LIST.find(
+    (d) =>
+      normalizedText.includes(d.toLowerCase().replace(/\./g, '')) ||
+      normalizedText.includes(d.toLowerCase())
+  );
+  const daiNorm = foundDai?.replace(/^TP\.HCM$/i, 'TP. Hồ Chí Minh');
+  const mb = daiNorm ? isXsktMienBacDai(daiNorm) : false;
+
   let ticket = '';
+  if (mb) {
+    const m5 = compactDigits.match(/(\d{5})/);
+    if (m5) ticket = m5[1];
+    else {
+      const spaced = text.match(/\b(\d\s*){5}\b/);
+      if (spaced) ticket = spaced[0].replace(/\D/g, '');
+    }
+    if (ticket.length === 5) {
+      return { type: 'xskt', ticketNumber: ticket, dai: daiNorm };
+    }
+  }
+
   const m6 = compactDigits.match(/(\d{6})/);
   if (m6) ticket = m6[1];
   else {
@@ -113,12 +136,10 @@ export function parseXSKTOCR(text: string): ParsedTicket {
     if (spaced) ticket = spaced[0].replace(/\D/g, '');
   }
   if (ticket.length === 6) {
-    const normalizedText = text.toLowerCase();
-    const foundDai = DAI_LIST.find((d) => normalizedText.includes(d.toLowerCase().replace(/\./g, '')) || normalizedText.includes(d.toLowerCase()));
     return {
       type: 'xskt',
       ticketNumber: ticket,
-      dai: foundDai?.replace(/^TP\.HCM$/i, 'TP. Hồ Chí Minh'),
+      dai: daiNorm,
     };
   }
   return { type: 'unknown' };
