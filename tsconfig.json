@@ -1,0 +1,15 @@
+{
+  "extends": "expo/tsconfig.base",
+  "compilerOptions": {
+    "strict": true
+  },
+  "include": [
+    "App.tsx",
+    "index.ts",
+    "recovered/**/*.ts",
+    "recovered/**/*.tsx"
+  ],
+  "exclude": [
+    "src/**"
+  ]
+}
