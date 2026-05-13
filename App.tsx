@@ -3,6 +3,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useEffect, useRef, useState } from 'react';
 import { Alert, Image, Platform, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import ScanModal from './src/components/ScanModal';
+import WinFireworksOverlay from './src/components/WinFireworksOverlay';
 import type { ParsedTicket } from './src/utils/ocrParser';
 import {
   ActionRow,
@@ -94,6 +95,8 @@ export default function App() {
   const kyNumberRef = useRef('');
   const scrollRef = useRef<ScrollView | null>(null);
   const resultCardYRef = useRef(0);
+  const actionRowYRef = useRef(0);
+  const [showWinFx, setShowWinFx] = useState(false);
   const [drawDate, setDrawDate] = useState<string>('');
   const [lotto535Special, setLotto535Special] = useState<number[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -126,13 +129,72 @@ export default function App() {
     if (tab !== 'do') return;
     if (isLoading) return;
     if (!checkResult || !apiResult) return;
+    const delay = checkResult.prize ? 480 : 0;
+    const id = setTimeout(() => {
+      requestAnimationFrame(() => {
+        scrollRef.current?.scrollTo({
+          y: Math.max(0, resultCardYRef.current - 12),
+          animated: true,
+        });
+      });
+    }, delay);
+    return () => clearTimeout(id);
+  }, [isLoading, checkResult, apiResult, tab]);
+
+  useEffect(() => {
+    if (!checkResult?.prize || !apiResult) {
+      setShowWinFx(false);
+      return;
+    }
+    setShowWinFx(true);
+    const t = setTimeout(() => setShowWinFx(false), 2800);
+    return () => clearTimeout(t);
+  }, [checkResult?.prize, apiResult]);
+
+  const vietlottSelectionComplete =
+    channel === 'vietlott' &&
+    tab === 'do' &&
+    (product === 'mega' || product === 'power'
+      ? pickerValues.length === 6
+      : product === 'lotto535'
+        ? pickerValues.length === 5 && lotto535Special.length === 1
+        : product === 'keno' && kenoTab === 'so'
+          ? pickerValues.length === 10
+          : product === 'keno' && kenoTab === 'text'
+            ? kenoTextValue !== null
+            : product === 'max3d'
+              ? slotValues.filter((v) => v && String(v).trim() !== '').length === 3
+              : product === 'max3dpro'
+                ? max3dProValues[0].every((v) => v && String(v).trim() !== '') &&
+                  max3dProValues[1].every((v) => v && String(v).trim() !== '')
+                : false);
+
+  useEffect(() => {
+    if (!vietlottSelectionComplete) return;
     requestAnimationFrame(() => {
       scrollRef.current?.scrollTo({
-        y: Math.max(0, resultCardYRef.current - 12),
+        y: Math.max(0, actionRowYRef.current - 16),
         animated: true,
       });
     });
-  }, [isLoading, checkResult, apiResult, tab]);
+  }, [vietlottSelectionComplete, product, pickerValues, slotValues, max3dProValues, kenoTab, kenoTextValue, lotto535Special]);
+
+  const handleResetForm = () => {
+    haptics.selection();
+    clearResultState();
+    setDrawDate('');
+    setKyNumber('');
+    kyNumberRef.current = '';
+    setKenoTab('so');
+    setKenoTextValue(null);
+    setPickerValues([]);
+    setSlotValues(Array(10).fill(''));
+    setMax3dProValues([Array(3).fill(''), Array(3).fill('')]);
+    setLotto535Special([]);
+    if (channel === 'xskt') {
+      setXsktNum('');
+    }
+  };
 
   const handleProductChange = (p: ProductKey) => {
     haptics.selection();
@@ -498,17 +560,28 @@ export default function App() {
           contentContainerStyle={{ padding: 16, paddingTop: 52, paddingBottom: 124 }}
           showsVerticalScrollIndicator={false}
         >
-          <Text
-            style={{
-              fontSize: 18,
-              fontWeight: '800',
-              color: theme.colors.textPrimary,
-              marginBottom: 16,
-              letterSpacing: -0.5,
-            }}
-          >
-            Dò Số
-          </Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+            <Text
+              style={{
+                fontSize: 18,
+                fontWeight: '800',
+                color: theme.colors.textPrimary,
+                letterSpacing: -0.5,
+                flex: 1,
+              }}
+            >
+              Dò Số
+            </Text>
+            {tab === 'do' ? (
+              <TouchableOpacity
+                onPress={handleResetForm}
+                hitSlop={{ top: 10, bottom: 10, left: 8, right: 8 }}
+                style={{ paddingVertical: 4, paddingHorizontal: 8 }}
+              >
+                <Text style={{ fontSize: 12, fontWeight: '700', color: theme.colors.textBrand }}>Đặt lại</Text>
+              </TouchableOpacity>
+            ) : null}
+          </View>
 
           <View style={{ flexDirection: 'row', gap: 4, marginBottom: 16 }}>
             {(['do', 'luu'] as const).map((t) => (
@@ -676,6 +749,17 @@ export default function App() {
                   )}
                   {product === 'lotto535' && (
                     <View>
+                      <Text
+                        style={{
+                          marginBottom: 6,
+                          fontSize: 13,
+                          color: '#666C76',
+                          textAlign: 'center',
+                          fontFamily: SF_PRO_TEXT,
+                        }}
+                      >
+                        Chọn 5 số (01-35)
+                      </Text>
                       <NumberPicker
                         total={35}
                         pickCount={5}
@@ -688,10 +772,31 @@ export default function App() {
                         specialPickCount={1}
                         specialLabel="⭐ Số đặc biệt (01-12)"
                       />
+                      <Text
+                        style={{
+                          marginTop: 10,
+                          fontSize: 12,
+                          fontWeight: '600',
+                          color:
+                            pickerValues.length === 5 && lotto535Special.length === 1 ? '#24A972' : '#A16B00',
+                          textAlign: 'center',
+                          fontFamily: SF_PRO_TEXT,
+                        }}
+                      >
+                        {pickerValues.length === 5 && lotto535Special.length === 1
+                          ? 'Đã chọn đủ số, bạn có thể Dò kết quả.'
+                          : 'Vui lòng chọn 5 số và 1 số đặc biệt để dò kết quả.'}
+                      </Text>
                     </View>
                   )}
 
-                  <ActionRow onCheck={handleCheck} accentColor={config.accentColor} isLoading={isLoading} />
+                  <View
+                    onLayout={(e) => {
+                      actionRowYRef.current = e.nativeEvent.layout.y;
+                    }}
+                  >
+                    <ActionRow onCheck={handleCheck} accentColor={config.accentColor} isLoading={isLoading} />
+                  </View>
                   {checkResult && apiResult && (
                     <View
                       onLayout={(e) => {
@@ -733,7 +838,13 @@ export default function App() {
                     }}
                     showActionRow={false}
                   />
-                  <ActionRow onCheck={handleCheck} accentColor={theme.colors.accentLotto535} isLoading={isLoading} />
+                  <View
+                    onLayout={(e) => {
+                      actionRowYRef.current = e.nativeEvent.layout.y;
+                    }}
+                  >
+                    <ActionRow onCheck={handleCheck} accentColor={theme.colors.accentLotto535} isLoading={isLoading} />
+                  </View>
                   {checkResult && apiResult && (
                     <View
                       onLayout={(e) => {
@@ -761,6 +872,8 @@ export default function App() {
 
           {tab === 'luu' && <SavedList channel={channel} refreshKey={savedRefreshKey} />}
         </ScrollView>
+
+        <WinFireworksOverlay visible={showWinFx && tab === 'do'} />
 
         <ScanModal
           visible={scanVisible}

@@ -261,7 +261,12 @@ export function ProductStrip({ value, onChange }: { value: string; onChange: (v:
             >
               <Image
                 source={productLogos[k.key]}
-                style={{ width: 28, height: 20 }}
+                style={{
+                  width: 28,
+                  height: 20,
+                  backgroundColor: 'transparent',
+                  ...({ blendMode: 'multiply' } as const),
+                }}
                 resizeMode="contain"
               />
               <Text style={{ color: active ? '#EB2F98' : '#6E7481', fontWeight: active ? '700' : '600', fontSize: 12 }}>{k.label}</Text>
@@ -319,16 +324,26 @@ export function KySoPicker({ product, value, onChange, accentColor = '#2D7FF9' }
     return list.filter((x) => x.kyso.includes(q) || x.date.includes(q) || x.drawDay.includes(q));
   }, [list, search]);
   const latestKy = list[0];
+  const selectedRow = useMemo(() => {
+    if (!value) return null;
+    return list.find((x) => String(x.kyso) === String(value)) || null;
+  }, [value, list]);
 
   return (
     <>
       <TouchableOpacity onPress={() => setOpen(true)} style={{ minHeight: 40, backgroundColor: '#F2F2F6', borderRadius: 8, borderWidth: 1, borderColor: '#EBEBEB', flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 7, gap: 8 }}>
         <Text>📋</Text>
         <View style={{ flex: 1 }}>
-          <Text style={{ color: '#303233' }}>{value ? `Kỳ #${value}` : 'Mới nhất'}</Text>
-          {!value && latestKy ? (
-            <Text style={{ marginTop: 1, color: '#8A8F98', fontSize: 11 }}>
-              Kỳ #{latestKy.kyso} · {formatVietlottKyRowDateVi(latestKy.date)}
+          <Text style={{ color: '#303233', fontSize: 13 }} numberOfLines={2}>
+            {!value && latestKy
+              ? `Mới nhất · #${latestKy.kyso} · ${formatVietlottKyRowDateVi(latestKy.date)}`
+              : value
+                ? `Kỳ #${value}`
+                : 'Mới nhất'}
+          </Text>
+          {value && selectedRow ? (
+            <Text style={{ marginTop: 2, fontSize: 11, color: '#8A8F98' }} numberOfLines={1}>
+              {formatVietlottKyRowDateVi(selectedRow.date)} · {selectedRow.drawDay}
             </Text>
           ) : null}
         </View>
@@ -397,8 +412,17 @@ export function ProductInfoBanner({ product }: { product: string }) {
   const info = map[product] || map.keno;
   return (
     <View style={{ padding: 12, borderRadius: 12, backgroundColor: info.bg, borderWidth: 1, borderColor: info.border, flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-      <View style={{ width: 56, height: 38, borderRadius: 10, backgroundColor: '#FFFFFFDD', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
-        <Image source={info.logo} style={{ width: 50, height: 30 }} resizeMode="contain" />
+      <View style={{ width: 56, height: 38, borderRadius: 10, backgroundColor: 'transparent', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+        <Image
+          source={info.logo}
+          style={{
+            width: 50,
+            height: 30,
+            backgroundColor: 'transparent',
+            ...({ blendMode: 'multiply' } as const),
+          }}
+          resizeMode="contain"
+        />
       </View>
       <View style={{ flex: 1 }}>
         <Text style={{ fontSize: 18, fontWeight: '800', color: '#303233' }}>{info.title}</Text>
