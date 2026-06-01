@@ -19,6 +19,48 @@ export function xsktExpectedTicketDigitCount(dai: string): 5 | 6 {
   return isXsktMienBacDai(dai) ? 5 : 6;
 }
 
+function normalizePrizeLabelKey(label: string): string {
+  return String(label || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+}
+
+/** Số chữ số mỗi giải (MN/MT); MB: đặc biệt 5, các giải khác theo bảng MB. */
+export function xsktDigitsPerPrizeLabel(label: string, mienBac = false): number {
+  const l = normalizePrizeLabelKey(label);
+  if (l.includes('dac biet')) return mienBac ? 5 : 6;
+  if (l.includes('tam') || l.includes('giai 8')) return 2;
+  if (l.includes('bay') || l.includes('giai 7')) return 3;
+  if (l.includes('nam') || l.includes('giai 5') || l.includes('sau') || l.includes('giai 6')) return 4;
+  if (l.includes('nhat') || l.includes('nhi') || l.includes('ba') || l.includes('tu')) return 5;
+  return 6;
+}
+
+/**
+ * Tách chuỗi số dính (vd. giải ba 10 số → 2×5, giải tư 35 số → 7×5) khi API/DB lưu một phần tử.
+ */
+export function expandXsktPrizeNumbers(
+  label: string,
+  numbers: string[] | undefined,
+  opts?: { mienBac?: boolean }
+): string[] {
+  const mb = !!opts?.mienBac;
+  const len = xsktDigitsPerPrizeLabel(label, mb);
+  const arr = (numbers || []).map((n) => String(n).trim()).filter(Boolean);
+  const flat: string[] = [];
+  for (const item of arr) {
+    const raw = item.replace(/\D/g, '');
+    if (!raw) continue;
+    if (raw.length > len && raw.length % len === 0 && raw.length / len <= 30) {
+      for (let i = 0; i < raw.length; i += len) flat.push(raw.slice(i, i + len));
+    } else {
+      flat.push(raw);
+    }
+  }
+  return flat;
+}
+
 /** Hiển thị ngày quay thống nhất dd/mm/yyyy (từ ISO yyyy-mm-dd hoặc chuỗi dd/mm/yyyy). */
 export function formatVietlottKyRowDateVi(raw: string): string {
   const t = String(raw || '').trim();
@@ -146,7 +188,7 @@ export function checkXSKTTicket(
   let best: { prize: string; rank: number } | null = null;
   for (const p of result?.prizes || []) {
     const { digits, rank } = getPrizeMeta(p?.label || '');
-    for (const num of p?.numbers || []) {
+    for (const num of expandXsktPrizeNumbers(p?.label || '', p?.numbers, { mienBac: mb })) {
       const win = String(num || '').replace(/\D/g, '');
       if (!win) continue;
       const tailLen = Math.min(digits, ticket.length, win.length);

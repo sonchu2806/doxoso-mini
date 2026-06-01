@@ -3,7 +3,14 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Animated, Image, Modal, PanResponder, Pressable, ScrollView, Text, TextInput, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Haptics from 'expo-haptics';
-import { API_BASE, formatVietlottKyRowDateVi, checkXSKTTicket, xsktExpectedTicketDigitCount } from '../src/services/lotteryApi';
+import {
+  API_BASE,
+  formatVietlottKyRowDateVi,
+  checkXSKTTicket,
+  xsktExpectedTicketDigitCount,
+  expandXsktPrizeNumbers,
+  isXsktMienBacDai,
+} from '../src/services/lotteryApi';
 
 export type ProductKey = 'keno' | 'mega' | 'power' | 'max3d' | 'max3dpro' | 'lotto535';
 export type KenoTab = 'so' | 'text';
@@ -58,7 +65,7 @@ export const haptics = {
   error: () => Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {}),
 };
 
-export { API_BASE, checkXSKTTicket, xsktExpectedTicketDigitCount };
+export { API_BASE, checkXSKTTicket, xsktExpectedTicketDigitCount, expandXsktPrizeNumbers };
 
 export async function fetchVietlottResult(product: string, kyso?: string) {
   const url = kyso
@@ -587,6 +594,7 @@ export function ResultCard({ product, channel, result, checkResult, myNumbers, m
     return [...list].sort((a, b) => rank(a.label) - rank(b.label));
   }, [result?.prizes]);
   const isXsktMode = channel === 'xskt' || product === 'xskt';
+  const xsktMienBac = isXsktMienBacDai(String(result?.dai || ''));
   const isKenoTextMode = product === 'keno' && !!checkResult?.textMode;
   const kenoChoiceLabelMap: Record<string, string> = {
     chan: 'Chẵn',
@@ -732,13 +740,13 @@ export function ResultCard({ product, channel, result, checkResult, myNumbers, m
                     {p.label}
                   </Text>
                   <Text style={{ color: isWinningPrize ? '#11845B' : '#303233', fontSize: 13, fontWeight: '700', flex: 1, textAlign: 'right' }}>
-                    {(p.numbers || [])
+                    {expandXsktPrizeNumbers(p.label, p.numbers, { mienBac: xsktMienBac })
                       .map((num) => {
                         const n = String(num || '').trim();
                         if (myTicket && n === myTicket) return `★${n}★`;
                         return n;
                       })
-                      .join('  •  ') || '—'}
+                      .join(' · ') || '—'}
                   </Text>
                 </View>
               );
