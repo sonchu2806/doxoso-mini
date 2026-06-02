@@ -865,7 +865,7 @@ export function XSKTInput({ onValueChange }: { onCheck: any; onValueChange: any;
   const [isTicketFocused, setIsTicketFocused] = useState(false);
   const [blinkOn, setBlinkOn] = useState(true);
   const ticketDigits = (ticket || '').replace(/\D/g, '');
-  const ticketLen = region === 'mb' ? 5 : 6;
+  const ticketLen = isXsktMienBacDai(dai) ? 5 : 6;
   const isTicketReady = ticketDigits.length === ticketLen;
 
   const emit = (nextTicket: string, nextDai: string, nextDate: string) => {
@@ -923,9 +923,10 @@ export function XSKTInput({ onValueChange }: { onCheck: any; onValueChange: any;
               onPress={() => {
                 setRegion(r);
                 const d = ticket.replace(/\D/g, '');
-                const nextT = r === 'mb' ? d.slice(0, 5) : d.slice(0, 6);
-                setTicket(nextT);
                 const nextDai = (XSKT_SCHEDULE[r]?.[weekday] || [])[0] || dai;
+                const nextLen = isXsktMienBacDai(nextDai) ? 5 : 6;
+                const nextT = d.slice(0, nextLen);
+                setTicket(nextT);
                 setDai(nextDai);
                 emit(nextT, nextDai, date);
               }}
@@ -980,8 +981,11 @@ export function XSKTInput({ onValueChange }: { onCheck: any; onValueChange: any;
               <TouchableOpacity
                 key={name}
                 onPress={() => {
+                  const nextLen = isXsktMienBacDai(name) ? 5 : 6;
+                  const nextT = ticket.replace(/\D/g, '').slice(0, nextLen);
+                  setTicket(nextT);
                   setDai(name);
-                  emit(ticket, name, date);
+                  emit(nextT, name, date);
                 }}
                 style={{
                   height: 32,
