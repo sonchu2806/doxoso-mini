@@ -87,17 +87,12 @@ function getXsktNotYetDrawnNotice(dai: string, drawDateVi: string): string | nul
   const drawAt = new Date(drawDate);
   drawAt.setHours(drawTime.hour, drawTime.minute, 0, 0);
   if (now >= drawAt) return null;
-
-  const remainMs = drawAt.getTime() - now.getTime();
-  const totalSec = Math.max(0, Math.floor(remainMs / 1000));
-  const hh = Math.floor(totalSec / 3600);
-  const mm = Math.floor((totalSec % 3600) / 60);
-  const ss = totalSec % 60;
   const dd = formatTwoDigits(drawAt.getDate());
   const mon = formatTwoDigits(drawAt.getMonth() + 1);
   const yyyy = drawAt.getFullYear();
-
-  return `chưa có kết quả quay số, kết quả sẽ có sau ${formatTwoDigits(hh)}:${formatTwoDigits(mm)}:${formatTwoDigits(ss)} ${dd}/${mon}/${yyyy}`;
+  const hh = formatTwoDigits(drawAt.getHours());
+  const mm = formatTwoDigits(drawAt.getMinutes());
+  return `Chưa có kết quả quay số. Kết quả sẽ có sau ${hh}:${mm} ${dd}/${mon}/${yyyy}.`;
 }
 
 const withFontFamily = (baseStyle: any) => {
