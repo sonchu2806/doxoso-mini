@@ -40,6 +40,66 @@ const TAB_ICON_VIETLOTT = require('./assets/tab-vietlott.png');
 const SF_PRO_TEXT = Platform.select({ ios: 'SF Pro Text', default: 'System' });
 const MOMO_TRUST = 'MoMo Trust';
 
+const XSKT_MIEN_BAC_DAIS = ['Hà Nội', 'Hải Phòng', 'Quảng Ninh', 'Bắc Ninh', 'Nam Định', 'Thái Bình'] as const;
+const XSKT_MIEN_TRUNG_DAIS = [
+  'Đà Nẵng',
+  'Khánh Hòa',
+  'Huế',
+  'Quảng Nam',
+  'Bình Định',
+  'Phú Yên',
+  'Ninh Thuận',
+  'Gia Lai',
+  'Đắk Lắk',
+] as const;
+
+function parseViDateToLocalDate(raw: string): Date | null {
+  const m = String(raw || '').trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (!m) return null;
+  const d = new Date(parseInt(m[3], 10), parseInt(m[2], 10) - 1, parseInt(m[1], 10), 0, 0, 0, 0);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+function sameLocalDay(a: Date, b: Date): boolean {
+  return (
+    a.getFullYear() === b.getFullYear() &&
+    a.getMonth() === b.getMonth() &&
+    a.getDate() === b.getDate()
+  );
+}
+
+function xsktDrawTimeForDai(dai: string): { hour: number; minute: number } {
+  if ((XSKT_MIEN_BAC_DAIS as readonly string[]).includes(dai)) return { hour: 18, minute: 15 };
+  if ((XSKT_MIEN_TRUNG_DAIS as readonly string[]).includes(dai)) return { hour: 17, minute: 15 };
+  return { hour: 16, minute: 15 };
+}
+
+function formatTwoDigits(n: number): string {
+  return String(Math.max(0, n)).padStart(2, '0');
+}
+
+function getXsktNotYetDrawnNotice(dai: string, drawDateVi: string): string | null {
+  const drawDate = parseViDateToLocalDate(drawDateVi);
+  if (!drawDate) return null;
+  const now = new Date();
+  if (!sameLocalDay(now, drawDate)) return null;
+  const drawTime = xsktDrawTimeForDai(dai);
+  const drawAt = new Date(drawDate);
+  drawAt.setHours(drawTime.hour, drawTime.minute, 0, 0);
+  if (now >= drawAt) return null;
+
+  const remainMs = drawAt.getTime() - now.getTime();
+  const totalSec = Math.max(0, Math.floor(remainMs / 1000));
+  const hh = Math.floor(totalSec / 3600);
+  const mm = Math.floor((totalSec % 3600) / 60);
+  const ss = totalSec % 60;
+  const dd = formatTwoDigits(drawAt.getDate());
+  const mon = formatTwoDigits(drawAt.getMonth() + 1);
+  const yyyy = drawAt.getFullYear();
+
+  return `chưa có kết quả quay số, kết quả sẽ có sau ${formatTwoDigits(hh)}:${formatTwoDigits(mm)}:${formatTwoDigits(ss)} ${dd}/${mon}/${yyyy}`;
+}
+
 const withFontFamily = (baseStyle: any) => {
   const fontWeight = baseStyle?.fontWeight;
   const useMoMoTrust =
@@ -314,6 +374,13 @@ export default function App() {
     if (!valid) {
       Alert.alert('Chưa đủ số', msg || 'Vui lòng nhập/chọn đủ thông tin trước khi Dò kết quả.');
       return;
+    }
+    if (channel === 'xskt') {
+      const notice = getXsktNotYetDrawnNotice(xsktDai, xsktDate);
+      if (notice) {
+        Alert.alert('Thông báo', notice);
+        return;
+      }
     }
 
     setIsLoading(true);
