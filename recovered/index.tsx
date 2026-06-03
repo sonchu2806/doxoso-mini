@@ -279,7 +279,7 @@ export function KySoPicker({ product, value, onChange, accentColor = '#2D7FF9' }
       if (!cancelled) setList(tmp);
     })();
     return () => { cancelled = true; };
-  }, [product, value]);
+  }, [product]);
 
   const filtered = useMemo(() => {
     const q = search.trim();
@@ -287,10 +287,20 @@ export function KySoPicker({ product, value, onChange, accentColor = '#2D7FF9' }
     return list.filter((x) => x.kyso.includes(q) || x.date.includes(q) || x.drawDay.includes(q));
   }, [list, search]);
   const latestKy = list[0];
+  const isLatestSelection = useMemo(() => {
+    if (!value) return true;
+    if (!latestKy) return false;
+    return String(value) === String(latestKy.kyso);
+  }, [value, latestKy]);
   const selectedRow = useMemo(() => {
-    if (!value) return null;
+    if (!value) return latestKy || null;
     return list.find((x) => String(x.kyso) === String(value)) || null;
-  }, [value, list]);
+  }, [value, list, latestKy]);
+
+  useEffect(() => {
+    if (!latestKy?.kyso) return;
+    if (!String(value || '').trim()) onChange(String(latestKy.kyso));
+  }, [latestKy?.kyso, value, onChange]);
 
   return (
     <>
@@ -298,7 +308,7 @@ export function KySoPicker({ product, value, onChange, accentColor = '#2D7FF9' }
         <Text>📋</Text>
         <View style={{ flex: 1 }}>
           <Text style={{ color: '#303233', fontSize: 13 }} numberOfLines={2}>
-            {!value && latestKy
+            {isLatestSelection && latestKy
               ? `Mới nhất · #${latestKy.kyso} · ${formatVietlottKyRowDateVi(latestKy.date)}`
               : value
                 ? `Kỳ #${value}`
@@ -333,10 +343,13 @@ export function KySoPicker({ product, value, onChange, accentColor = '#2D7FF9' }
             </View>
             <ScrollView>
               <TouchableOpacity
-                onPress={() => { onChange(''); setOpen(false); }}
+                onPress={() => {
+                  onChange(latestKy?.kyso ? String(latestKy.kyso) : '');
+                  setOpen(false);
+                }}
                 style={{ paddingHorizontal: 16, paddingVertical: 13, borderBottomWidth: 1, borderBottomColor: '#F1F2F6' }}
               >
-                <Text style={{ color: !value ? accentColor : '#303233', fontWeight: !value ? '700' : '500' }}>Mới nhất</Text>
+                <Text style={{ color: isLatestSelection ? accentColor : '#303233', fontWeight: isLatestSelection ? '700' : '500' }}>Mới nhất</Text>
               </TouchableOpacity>
               {filtered.map((it, idx) => (
                 <TouchableOpacity

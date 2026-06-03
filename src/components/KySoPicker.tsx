@@ -46,8 +46,23 @@ export default function KySoPicker({ product, value, onChange, accentColor = '#2
     if (!q) return kyList;
     return kyList.filter((item) => item.kyso?.includes(q));
   }, [kyList, searchText]);
-  const hasMatchedValue = Boolean(value && kyList.some((item) => item.kyso === value));
-  const displayValue = hasMatchedValue ? `Kỳ #${value}` : 'Mới nhất';
+  const latestKy = kyList[0];
+  const isLatestSelection = useMemo(() => {
+    if (!value) return true;
+    if (!latestKy?.kyso) return false;
+    return String(value) === String(latestKy.kyso);
+  }, [value, latestKy]);
+  const displayValue =
+    isLatestSelection && latestKy?.kyso
+      ? `Mới nhất · #${latestKy.kyso}`
+      : value
+        ? `Kỳ #${value}`
+        : 'Mới nhất';
+
+  useEffect(() => {
+    if (!latestKy?.kyso) return;
+    if (!String(value || '').trim()) onChange(String(latestKy.kyso));
+  }, [latestKy?.kyso, value, onChange]);
 
   return (
     <>
@@ -106,12 +121,12 @@ export default function KySoPicker({ product, value, onChange, accentColor = '#2
 
             <TouchableOpacity
               onPress={() => {
-                onChange('');
+                onChange(latestKy?.kyso ? String(latestKy.kyso) : '');
                 setOpen(false);
               }}
               style={{ paddingVertical: 10 }}
             >
-              <Text style={{ fontSize: 15, fontWeight: !hasMatchedValue ? '700' : '500', color: !hasMatchedValue ? accentColor : '#111827' }}>
+              <Text style={{ fontSize: 15, fontWeight: isLatestSelection ? '700' : '500', color: isLatestSelection ? accentColor : '#111827' }}>
                 Mới nhất
               </Text>
             </TouchableOpacity>
