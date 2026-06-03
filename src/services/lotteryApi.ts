@@ -1,5 +1,62 @@
 export const API_BASE = 'https://web-production-d8605.up.railway.app';
 
+export const DRAWING_MESSAGE = 'Đang quay số';
+
+const VIETLOTT_DRAW_DAYS: Record<string, number[]> = {
+  mega: [0, 3, 5],
+  power: [2, 4, 6],
+  max3d: [1, 3, 5],
+  max3dpro: [2, 4, 6],
+  lotto535: [0, 1, 2, 3, 4, 5, 6],
+  keno: [0, 1, 2, 3, 4, 5, 6],
+};
+
+function parseViDateLocal(raw: string): Date | null {
+  const m = String(raw || '').trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (!m) return null;
+  const d = new Date(parseInt(m[3], 10), parseInt(m[2], 10) - 1, parseInt(m[1], 10), 0, 0, 0, 0);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+function sameLocalCalendarDay(a: Date, b: Date): boolean {
+  return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+}
+
+/** XSKT: đã qua giờ quay trong ngày đang chọn (fallback khi API cũ trả 500). */
+export function isXsktPastDrawTimeLocal(
+  dai: string,
+  drawDateVi: string,
+  drawTime: { hour: number; minute: number }
+): boolean {
+  const drawDate = parseViDateLocal(drawDateVi);
+  if (!drawDate) return false;
+  const now = new Date();
+  if (!sameLocalCalendarDay(now, drawDate)) return false;
+  const drawAt = new Date(drawDate);
+  drawAt.setHours(drawTime.hour, drawTime.minute, 0, 0);
+  return now >= drawAt;
+}
+
+/** Vietlott: khung chờ công bố sau giờ quay (fallback client). */
+export function isVietlottDrawingWindowLocal(product: string, kyso?: string, latestKyso?: string): boolean {
+  const days = VIETLOTT_DRAW_DAYS[product];
+  if (!days?.length) return false;
+  const now = new Date();
+  const dow = now.getDay();
+  if (!days.includes(dow)) return false;
+
+  const norm = (p: string, k: string) => {
+    const n = String(k || '').replace(/\D/g, '');
+    if (!n) return '';
+    return p === 'keno' ? n.padStart(7, '0') : n.padStart(5, '0');
+  };
+  if (kyso && latestKyso && norm(product, kyso) !== norm(product, latestKyso)) return false;
+
+  const hm = now.getHours() * 60 + now.getMinutes();
+  if (product === 'keno') return hm >= 6 * 60 && hm < 23 * 60 + 45;
+  return hm >= 18 * 60 && hm < 22 * 60 + 30;
+}
+
 /** Đài XSKT miền Bắc: số vé 5 chữ số; miền Nam / Trung: 6 chữ số. */
 export const XSKT_MIEN_BAC_DAIS = [
   'Hà Nội',
@@ -85,7 +142,12 @@ export async function fetchVietlottResult(product: string, kyso?: string) {
     if (!res.ok) throw new Error(`Server lỗi: ${res.status}`);
     const json = await res.json();
     console.log('[fetchVietlottResult] Data:', JSON.stringify(json).slice(0, 100));
-    if (!json.success) throw new Error(json.error || 'Lỗi không xác định');
+    if (!json.success) {
+      if (json.code === 'DRAWING' || json.error === DRAWING_MESSAGE) {
+        throw new Error(DRAWING_MESSAGE);
+      }
+      throw new Error(json.error || 'Lỗi không xác định');
+    }
     return json.data;
   } catch (e) {
     console.error('[fetchVietlottResult] ERROR:', e);
@@ -102,7 +164,12 @@ export async function fetchXSKTResult(dai: string, date?: string) {
   const res = await fetch(url);
   if (!res.ok) throw new Error(`Server lỗi: ${res.status}`);
   const json = await res.json();
-  if (!json.success) throw new Error(json.error || 'Lỗi không xác định');
+  if (!json.success) {
+    if (json.code === 'DRAWING' || json.error === DRAWING_MESSAGE) {
+      throw new Error(DRAWING_MESSAGE);
+    }
+    throw new Error(json.error || 'Lỗi không xác định');
+  }
   return json.data;
 }
 

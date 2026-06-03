@@ -5,8 +5,13 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Haptics from 'expo-haptics';
 import {
   API_BASE,
+  DRAWING_MESSAGE,
   formatVietlottKyRowDateVi,
   checkXSKTTicket,
+  fetchVietlottResult,
+  fetchXSKTResult,
+  isVietlottDrawingWindowLocal,
+  isXsktPastDrawTimeLocal,
   xsktExpectedTicketDigitCount,
   expandXsktPrizeNumbers,
   isXsktMienBacDai,
@@ -65,38 +70,17 @@ export const haptics = {
   error: () => Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {}),
 };
 
-export { API_BASE, checkXSKTTicket, xsktExpectedTicketDigitCount, expandXsktPrizeNumbers };
-
-export async function fetchVietlottResult(product: string, kyso?: string) {
-  const url = kyso
-    ? `${API_BASE}/vietlott/${product}?kyso=${encodeURIComponent(kyso)}`
-    : `${API_BASE}/vietlott/${product}`;
-
-  console.log('[fetchVietlottResult] Calling URL:', url);
-
-  try {
-    const res = await fetch(url);
-    console.log('[fetchVietlottResult] Response status:', res.status);
-    const json = await res.json();
-    console.log('[fetchVietlottResult] JSON:', JSON.stringify(json).slice(0, 100));
-    if (!json.success) throw new Error(json.error || 'Lỗi không xác định');
-    return json.data;
-  } catch (e: any) {
-    console.error('[fetchVietlottResult] CATCH ERROR:', e?.message, e?.name);
-    throw e;
-  }
-}
-export async function fetchXSKTResult(dai: string, date?: string) {
-  const normalizedDate = date ? date.replace(/\//g, '-') : '';
-  const url = normalizedDate
-    ? `${API_BASE}/xskt?dai=${encodeURIComponent(dai)}&date=${encodeURIComponent(normalizedDate)}`
-    : `${API_BASE}/xskt?dai=${encodeURIComponent(dai)}`;
-  const res = await fetch(url);
-  if (!res.ok) throw new Error(`Server lỗi: ${res.status}`);
-  const json = await res.json();
-  if (!json.success) throw new Error(json.error || 'Lỗi không xác định');
-  return json.data;
-}
+export {
+  API_BASE,
+  DRAWING_MESSAGE,
+  checkXSKTTicket,
+  fetchVietlottResult,
+  fetchXSKTResult,
+  isVietlottDrawingWindowLocal,
+  isXsktPastDrawTimeLocal,
+  xsktExpectedTicketDigitCount,
+  expandXsktPrizeNumbers,
+};
 export function checkVietlottTicket(myNumbers: number[], result: { numbers: number[]; powerNumber?: number }, product: string) {
   const mainNumbers = product === 'lotto535' ? myNumbers.slice(0, 5) : myNumbers;
   const matched = mainNumbers.filter((n) => result?.numbers?.includes(n));

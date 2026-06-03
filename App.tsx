@@ -32,6 +32,11 @@ import {
   haptics,
   xsktExpectedTicketDigitCount,
 } from './recovered';
+import {
+  DRAWING_MESSAGE,
+  isVietlottDrawingWindowLocal,
+  isXsktPastDrawTimeLocal,
+} from './src/services/lotteryApi';
 
 const TAB_ICON_XSKT = require('./assets/tab-xskt.png');
 const TAB_ICON_SCAN = require('./assets/tab-scan.png');
@@ -522,9 +527,20 @@ export default function App() {
         }
       }
     } catch (e) {
-      haptics.error();
       const errMsg = e instanceof Error ? e.message : String(e);
-      Alert.alert('Lỗi', `${errMsg}\nKiểm tra kết nối mạng và thử lại`);
+      const drawing =
+        errMsg === DRAWING_MESSAGE ||
+        (channel === 'xskt' &&
+          isXsktPastDrawTimeLocal(xsktDai, xsktDate, xsktDrawTimeForDai(xsktDai))) ||
+        (channel === 'vietlott' &&
+          isVietlottDrawingWindowLocal(product, kyNumberRef.current.trim() || undefined));
+      if (drawing) {
+        haptics.light();
+        Alert.alert('Thông báo', DRAWING_MESSAGE);
+      } else {
+        haptics.error();
+        Alert.alert('Lỗi', `${errMsg}\nKiểm tra kết nối mạng và thử lại`);
+      }
     } finally {
       setIsLoading(false);
     }
